@@ -7,7 +7,20 @@ namespace Infokod
 {
     class Program
     {
-        public static List<List<int>> possibleE = new List<List<int>>();
+
+        static int q = 7;
+        static int n = 6;
+        static int k = 2;
+        static int alpha = 5;
+        static int[] u = { 6, 6 };
+        static int[] zaj = { 0, 3, 0, 0, 2, 0 };
+        static int[] v = new int[n];
+        static int[,] G;
+        static int[,] H;
+        static int dmin = n - k + 1;
+        static int t = dmin / 2;
+
+        static List<List<int>> possibleE = new List<List<int>>();
         static void Main(string[] args)
         {
             //qarHammingEgysegmatrixxal();       
@@ -17,18 +30,116 @@ namespace Infokod
         {
             //kiszh GF(5) C(4,2)  alpha=3  u=(4,3) e=(0,0,3,0)
 
-            int q = 7;
-            int n = 6;
-            int k = 2;
-            int alpha = 5;
-            int[] u = { 6,6 };
-            int[] zaj = { 0,3,0, 0, 2, 0 };
-            int[] v = new int[n];
-            int[,] G;
-            int[,] H;
-            int t = (n - k + 1)/2;
+            System.Console.Write("Megadott u: ");
+            printVector(u);
+
+            System.Console.WriteLine("n=" + n + " k=" + k);
+
+            System.Console.WriteLine("dmin=wmin=" + dmin);
+
+            System.Console.WriteLine("t=" + t);
+
+            System.Console.WriteLine("Alpha=" + alpha);
+
+            System.Console.WriteLine("zaj: ");
+            printVector(zaj);
 
             /* GENERATE G MATRIX ######################################################################*/
+
+            G = calculateG();
+            Console.WriteLine("G matrix");
+            matrixPrint(G);
+            Console.WriteLine();
+
+
+            /* GENERATE H MATRIX ######################################################################*/
+
+            H = calculateH();
+            Console.WriteLine("H matrix");
+            matrixPrint(H);
+            Console.WriteLine();
+
+
+
+            /* CALCULATE C ###########################################################################*/
+
+            int[] c = calculateC();
+            System.Console.Write("c=");
+            printVector(c);
+            System.Console.WriteLine();
+
+
+            /* CALCULATE V ######################################################################*/
+
+            for (int i = 0; i < n; i++)
+            {
+                v[i] = (c[i] + zaj[i]) % q;
+            }
+
+            Console.Write("v=");
+            printVector(v);
+
+
+            /* CALCULATE S FROM HandV ###########################################################*/
+
+            int[] s = calculateS();
+            Console.Write("s vector:");
+            printVector(s);
+            Console.WriteLine();
+
+            /* CALCULATE E group ################################################################*/
+
+            int[] arr = new int[n];
+            AllPossibleEVectors(arr, n - 1, q);
+            int[] s2 = new int[n - k];
+            List<List<int>> greatE = new List<List<int>>();
+
+            for (int e = 0; e < possibleE.Count; e++)
+            {
+                List<int> act = possibleE[e];
+                for (int i = 0; i < n - k; i++)
+                {
+                    for (int j = 0; j < n; j++)
+                    {
+                        s2[i] = (s2[i] + H[i, j] * act[j]) % q;
+                    }
+                }
+                if (s2.SequenceEqual(s))
+                {
+                    greatE.Add(act);
+                }
+                s2 = new int[n - k];
+            }
+            IDictionary<double, List<int>> eDictionary = new Dictionary<double, List<int>>();
+            foreach (List<int> list in greatE)
+            {
+                double x = calculateNorm(list);
+                if (!eDictionary.ContainsKey(x))
+                    eDictionary.Add(x, list);
+            }
+            Console.WriteLine();
+            Console.WriteLine("The lowest weight e");
+            eDictionary = eDictionary.OrderBy(obj => obj.Key).ToDictionary(obj => obj.Key, obj => obj.Value);
+            eDictionary.ElementAt(0).Value.ForEach(Console.Write);
+            System.Console.WriteLine("Súly: " + eDictionary.ElementAt(0).Key);
+        }
+
+        public static int[] calculateS()
+        {
+            int[] s = new int[n - k];
+
+            for (int i = 0; i < n - k; i++)
+            {
+                for (int j = 0; j < n; j++)
+                {
+                    s[i] = (s[i] + H[i, j] * v[j]) % q;
+                }
+            }
+            return s;
+        }
+
+        private static int[,] calculateG()
+        {
             G = new int[k, n];
             //nulladik sor 1111
             for (int i = 0; i < n; i++)
@@ -58,13 +169,11 @@ namespace Infokod
                     G[j, i] = G[1, idx];
                 }
             }
-
-            Console.WriteLine("G matrix");
-            matrixPrint(G);
-            Console.WriteLine();
-
-
-            /* GENERATE H MATRIX ######################################################################*/
+            return G;
+        }
+       
+        private static int[,] calculateH()
+        {
             H = new int[n - k, n];
             for (int j = 0; j < n - k; j++)
             {
@@ -78,123 +187,33 @@ namespace Infokod
             }
 
             //tobbi sor
-            for (int j = 1; j < n-k; j++)
+            for (int j = 1; j < n - k; j++)
             {
                 int idx = 0;
                 for (int i = 1; i < n; i++)
                 {
                     idx = (((j + 1) * i) % n);
                     H[j, i] = H[0, idx];
-                    Console.WriteLine(H[0, idx]);
                 }
             }
+            return H;
+        }
 
-            Console.WriteLine("H matrix");
-            matrixPrint(H);
-            Console.WriteLine();
+        private static int[] calculateC()
+        {
             int[] c = new int[n];
-            /* CALCULATE C ######################################################################*/
             for (int j = 0; j < k; j++)
             {
                 for (int i = 0; i < n; i++)
                 {
-                    c[i] += G[j, i] * u[j] % q;
+                    c[i] = (c[i] + G[j, i] * u[j]) % q;
                 }
             }
-
-
-            /* CALCULATE V ######################################################################*/
-
-            for (int i = 0; i < n; i++)
-            {
-                v[i] = (c[i] + zaj[i]) % q;
-            }
-
-            Console.WriteLine("v vector");
-            foreach (var item in v)
-                Console.Write(item + " ");
-            Console.WriteLine();
-
-
-            /* CALCULATE S FROM E ######################################################################*/
-            int[] s = new int[n - k];
-
-            for (int i = 0; i < n - k; i++)
-            {
-                for (int j = 0; j < n; j++)
-                {
-                    s[i] = (s[i] + H[i, j] * v[j]) % q;
-                }
-            }
-            Console.WriteLine("s vector:");
-            List<int> sList = s.ToList();
-            sList.ForEach(Console.Write);
-            Console.WriteLine();
-
-            /* CALCULATE E group ######################################################################*/
-
-            int[] arr = new int[n];
-            recursiveQuar(arr, n - 1, q);
-            int[] s2 = new int[n - k];
-            List<List<int>> greatE = new List<List<int>>();
-
-            for (int e = 0; e < possibleE.Count; e++)
-            {
-                List<int> act = possibleE[e];
-
-                for (int i = 0; i < n - k; i++)
-                {
-
-                    for (int j = 0; j < n; j++)
-                    {
-                        s2[i] = (s2[i] + H[i, j] * act[j]) % q;
-                    }
-                }
-                if (s2.SequenceEqual(s))
-                {
-                    greatE.Add(act);
-                }
-                s2 = new int[n - k];
-            }
-            Console.WriteLine("possible e's:");
-            IDictionary<double, List<int>> eDictionary = new Dictionary<double, List<int>>();
-            foreach (List<int> list in greatE)
-            {
-                list.ForEach(Console.Write);
-                Console.Write(" Suly ");
-                double x = calculateNorm(list);
-                if (!eDictionary.ContainsKey(x))
-                    eDictionary.Add(x, list);
-            }
-
-
-
-            //Console.WriteLine("Ordered e's");
-            //foreach (List<int> list in rlist)
-            //{
-            //    list.ForEach(Console.Write);
-            //    Console.WriteLine();
-            //}
-            Console.WriteLine();
-            Console.WriteLine("The lowest weight e");
-            eDictionary = eDictionary.OrderBy(obj => obj.Key).ToDictionary(obj => obj.Key, obj => obj.Value);
-
-            foreach (KeyValuePair<double, List<int>> entry in eDictionary) 
-            {
-                entry.Value.ForEach(Console.Write);
-                Console.WriteLine(" Suly: "+entry.Key);
-            }
+            return c;
         }
 
-            static void qarHammingEgysegmatrixxal()
+        static void qarHammingEgysegmatrixxal()
         {
-            //EZ  A 2. GYAK ELSŐ FELE Q-ÁRIS HAMMING
-            //int[,] G = { {1,0,2,2},{0,1,2,1} };
-            //int[] v = { 0, 1, 1, 1 }; //EZ CSAK TESZT, NEM VOLT MEGADVA
-            //int q = 3;
-
-            // 1. feladatgyűjtemény
-            //4. feladat G és v adott
             int[,] G = { { 1, 0, 0, 0, 1 }, { 0, 1, 0, 1, 0 }, { 0, 0, 1, 1, 1 } };
             int[] v = { 0, 1, 0, 1, 1 };
             int q = 2;
@@ -211,11 +230,11 @@ namespace Infokod
                 Console.Write(item + " ");
             Console.WriteLine();
 
-            
+
             Console.WriteLine("n=" + n + " k=" + k);
             Console.WriteLine();
 
-            
+
 
             // H generator
             for (int i = 0; i < k; i++) //this part copies values from G
@@ -259,7 +278,7 @@ namespace Infokod
 
             //e csoport
             int[] arr = new int[n];
-            recursiveQuar(arr, n - 1, q);
+            AllPossibleEVectors(arr, n - 1, q);
             int[] s2 = new int[n - k];
             List<List<int>> greatE = new List<List<int>>();
 
@@ -309,41 +328,33 @@ namespace Infokod
         static double calculateNorm(List<int> list)
         {
             double norm = 0;
-            foreach(int i in list)
+            foreach (int i in list)
             {
-                norm +=Math.Pow(i,  2.0);
+                norm += Math.Pow(i, 2.0);
             }
-            Console.WriteLine(Math.Pow(norm, 1.0 / 2.0));
-            return Math.Pow(norm,1.0/2.0);
+            return Math.Pow(norm, 1.0 / 2.0);
         }
 
-
-
-    static void recursiveQuar(int[] arr, int codeLength,int k)
+        static void AllPossibleEVectors(int[] arr, int codeLength, int k)
         {
-            int[] myint = new int[arr.Length]; 
-            myint=arr;
+            int[] myint = new int[arr.Length];
+            myint = arr;
             if (codeLength >= 0)
             {
                 for (int i = 0; i < k; i++)
                 {
 
                     myint[codeLength] = i;
-                    recursiveQuar(myint, codeLength - 1, k);
+                    AllPossibleEVectors(myint, codeLength - 1, k);
                 }
             }
             else
             {
-                 List<int> sList = myint.ToList();
-                // sList.ForEach(Console.Write);
-                // Console.WriteLine();
+                List<int> sList = myint.ToList();
+                possibleE.Add(sList);
+            }
 
-                possibleE.Add(sList);                
-            }    
-            
-        } 
-
-
+        }
 
         static void matrixPrint(int[,] matrix)
         {
@@ -356,6 +367,16 @@ namespace Infokod
                 Console.WriteLine();
             }
         }
+
+        private static void printVector(int[] vector)
+        {
+            foreach (int i in vector)
+            {
+                System.Console.Write(i + " ");
+            }
+            System.Console.WriteLine();
+        }
     }
+
 }
-    
+
